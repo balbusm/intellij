@@ -17,13 +17,14 @@ class ConsumerProducerFieldConfigTest {
     private fun config(
         type: KafkaFieldType,
         valueText: String,
-        schemaFormat: KafkaRegistryFormat = KafkaRegistryFormat.UNKNOWN
+        schemaFormat: KafkaRegistryFormat = KafkaRegistryFormat.UNKNOWN,
+        registryType: KafkaRegistryType = KafkaRegistryType.NONE
     ) = ConsumerProducerFieldConfig(
         type = type,
         valueText = valueText,
         isKey = false,
         topic = "test-topic",
-        registryType = KafkaRegistryType.NONE,
+        registryType = registryType,
         schemaName = "",
         schemaFormat = schemaFormat,
         parsedSchema = null
@@ -152,6 +153,22 @@ class ConsumerProducerFieldConfigTest {
             assertThrows<Exception> {
                 config(KafkaFieldType.SCHEMA_REGISTRY, "").getValueObj()
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("getValueObj - SCHEMA_REGISTRY with CUSTOM registry")
+    inner class CustomRegistryType {
+
+        @Test
+        fun `should return raw JSON text unchanged for CUSTOM registry`() {
+            val json = """{"key": "value"}"""
+            val result = config(
+                KafkaFieldType.SCHEMA_REGISTRY, json,
+                schemaFormat = KafkaRegistryFormat.JSON,
+                registryType = KafkaRegistryType.CUSTOM
+            ).getValueObj()
+            assertEquals(json, result)
         }
     }
 }
