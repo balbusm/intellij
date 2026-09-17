@@ -45,6 +45,8 @@ data class ConsumerProducerFieldConfig(
                     KafkaRegistryType.CONFLUENT -> JsonSchemaUtils.toObject(valueText, parsedSchema as JsonSchema)
                     KafkaRegistryType.AWS_GLUE -> JsonDataWithSchema.builder(parsedSchema?.canonicalString(), valueText)
                         .build()
+
+                    KafkaRegistryType.CUSTOM -> valueText
                 }
 
                 KafkaRegistryFormat.UNKNOWN -> {

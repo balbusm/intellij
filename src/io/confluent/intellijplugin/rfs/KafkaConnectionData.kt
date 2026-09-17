@@ -36,7 +36,8 @@ class KafkaConnectionData(var version: Int? = null) : RemoteFsDriverProvider(
             setCredentials(Credentials(value, null as? String?), CONFIG_KEY)
         }
 
-    override fun credentialIds() = super.credentialIds() + CONFIG_KEY + CONFIG_REGISTRY_KEY + SECRET_KEY_ID
+    override fun credentialIds() =
+        super.credentialIds() + CONFIG_KEY + CONFIG_REGISTRY_KEY + SECRET_KEY_ID + CONFIG_CUSTOM_REGISTRY_KEY
 
     var brokerConfigurationSource: KafkaConfigurationSource = KafkaConfigurationSource.FROM_UI
     var brokerCloudSource: KafkaCloudType = KafkaCloudType.CONFLUENT
@@ -64,6 +65,15 @@ class KafkaConnectionData(var version: Int? = null) : RemoteFsDriverProvider(
 
 
     var glueSettings: String? = null
+
+    var customRegistryJarPath: String? = null
+
+    @DoNotSerialize
+    var secretCustomRegistryProperties: String
+        get() = getCredentials(CONFIG_CUSTOM_REGISTRY_KEY)?.userName ?: ""
+        set(value) {
+            setCredentials(Credentials(value, null as? String?), CONFIG_CUSTOM_REGISTRY_KEY)
+        }
 
 
     fun loadAwsGlueSettings(): StaticAwsSettingsInfo? {
@@ -127,5 +137,6 @@ class KafkaConnectionData(var version: Int? = null) : RemoteFsDriverProvider(
     companion object {
         val CONFIG_KEY = CredentialId("broker.secret.properties")
         val CONFIG_REGISTRY_KEY = CredentialId("registry.secret.properties")
+        val CONFIG_CUSTOM_REGISTRY_KEY = CredentialId("custom.registry.secret.properties")
     }
 }

@@ -2,6 +2,7 @@ package io.confluent.intellijplugin.settings
 
 import com.amazonaws.services.schemaregistry.utils.AWSSchemaRegistryConstants
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.observable.util.whenFocusLost
 import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBCheckBox
@@ -133,6 +134,27 @@ class KafkaRegistrySettings(
         connectionData
     )
 
+    private val customRegistryCredentialsHolder = CredentialsHolder(
+        connectionData, KafkaConnectionData.CONFIG_CUSTOM_REGISTRY_KEY,
+        uiDisposable, coroutineScope
+    )
+
+    internal val customJarPath = BrowseTextField(
+        KafkaConnectionData::customRegistryJarPath,
+        ModificationKey(KafkaMessagesBundle.message("settings.registry.custom.jar.path")),
+        FileChooserDescriptorFactory.createSingleFileDescriptor("jar"),
+        initSettings = connectionData
+    )
+
+    internal val customPropertiesEditor = SecretPropertiesFieldComponent(
+        project,
+        emptyList(),
+        customRegistryCredentialsHolder,
+        KafkaSettingsCustomizer.KafkaSettingsKeys.CUSTOM_REGISTRY_PROPERTIES_KEY,
+        connectionData,
+        uiDisposable
+    )
+
     internal val awsGlueSettings = AwsSettingsComponentForKafka(includeRegionSetting = true) {
         saveGlueSettings()
     }
@@ -141,6 +163,7 @@ class KafkaRegistrySettings(
 
     private lateinit var confluentGroup: RowsRange
     private lateinit var glueGroup: RowsRange
+    private lateinit var customGroup: RowsRange
 
     private lateinit var registryPropertiesGroup: Row
     private lateinit var implicitRegistryClientSettingsGroup: RowsRange
@@ -175,6 +198,10 @@ class KafkaRegistrySettings(
             glueGroup = rowsRange {
                 awsGlueSettings.getComponentRows(this)
                 row(glueRegistryName)
+            }
+            customGroup = rowsRange {
+                row(customJarPath).layout(RowLayout.INDEPENDENT)
+                block(customPropertiesEditor.getComponent())
             }
 
             awsAccessKey.isInitialized.afterChange {
@@ -420,7 +447,9 @@ class KafkaRegistrySettings(
             awsAccessKey,
             awsSecretKey,
             glueRegistryName,
-            useBrokerSslCheckbox
+            useBrokerSslCheckbox,
+            customJarPath,
+            customPropertiesEditor
         )
 
     private fun onRegistryTypeChanged() {
@@ -428,16 +457,25 @@ class KafkaRegistrySettings(
             KafkaRegistryType.NONE -> {
                 confluentGroup.visible(false)
                 glueGroup.visible(false)
+                customGroup.visible(false)
             }
 
             KafkaRegistryType.CONFLUENT -> {
                 confluentGroup.visible(true)
                 glueGroup.visible(false)
+                customGroup.visible(false)
             }
 
             KafkaRegistryType.AWS_GLUE -> {
                 confluentGroup.visible(false)
                 glueGroup.visible(true)
+                customGroup.visible(false)
+            }
+
+            KafkaRegistryType.CUSTOM -> {
+                confluentGroup.visible(false)
+                glueGroup.visible(false)
+                customGroup.visible(true)
             }
         }
     }

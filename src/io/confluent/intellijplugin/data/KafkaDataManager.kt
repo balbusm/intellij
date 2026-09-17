@@ -24,9 +24,11 @@ import io.confluent.intellijplugin.core.util.runAsync
 import io.confluent.intellijplugin.core.util.runAsyncSuspend
 import io.confluent.intellijplugin.model.*
 import io.confluent.intellijplugin.registry.KafkaRegistryFormat
+import io.confluent.intellijplugin.registry.KafkaRegistryType
 import io.confluent.intellijplugin.registry.KafkaRegistryUtil
 import io.confluent.intellijplugin.registry.SchemaVersionInfo
 import io.confluent.intellijplugin.registry.common.KafkaSchemaInfo
+import io.confluent.intellijplugin.registry.custom.BrowsableCustomRegistryClient
 import io.confluent.intellijplugin.rfs.KafkaConnectionData
 import io.confluent.intellijplugin.rfs.KafkaDriver
 import io.confluent.intellijplugin.toolwindow.config.KafkaToolWindowSettings
@@ -154,6 +156,7 @@ class KafkaDataManager(
     override suspend fun listSchemasNames(limit: Int?, filter: String?): Pair<List<KafkaSchemaInfo>, Boolean> {
         return client.confluentRegistryClient?.listSchemas(limit, filter, false, connectionId)
             ?: client.glueRegistryClient?.listSchemas(limit, filter, connectionId)
+            ?: (client.customRegistryClient as? BrowsableCustomRegistryClient)?.listSchemas(limit, filter, connectionId)
             ?: (emptyList<KafkaSchemaInfo>() to false)
     }
 
@@ -181,6 +184,7 @@ class KafkaDataManager(
     override suspend fun listSchemaVersions(schemaName: String): List<Long> {
         return client.confluentRegistryClient?.listSchemaVersions(schemaName)
             ?: client.glueRegistryClient?.listSchemaVersions(schemaName)
+            ?: (client.customRegistryClient as? BrowsableCustomRegistryClient)?.listSchemaVersions(schemaName)
             ?: emptyList()
     }
 
@@ -205,6 +209,7 @@ class KafkaDataManager(
     override fun getSchemasForEditor() = try {
         val (schemas, _) = client.confluentRegistryClient?.listSchemas(null, null, false, connectionId)
             ?: client.glueRegistryClient?.listSchemas(null, null, connectionId)
+            ?: (client.customRegistryClient as? BrowsableCustomRegistryClient)?.listSchemas(null, null, connectionId)
             ?: (emptyList<KafkaSchemaInfo>() to false)
         schemas.map {
             val schemaFormat = it.type
@@ -227,15 +232,21 @@ class KafkaDataManager(
     override fun getSchemaVersionInfo(schemaName: String, version: Long): Promise<SchemaVersionInfo> = runAsync {
         client.glueRegistryClient?.getSchemaVersionInfo(schemaName, version)
             ?: client.confluentRegistryClient?.getSchemaVersionInfo(schemaName, version)
+            ?: (client.customRegistryClient as? BrowsableCustomRegistryClient)?.getSchemaVersionInfo(schemaName, version)
             ?: error(KafkaMessagesBundle.message("error.schema.registry.provider.not.selected"))
     }
 
     override fun parseSchemaForDisplay(versionInfo: SchemaVersionInfo): Result<ParsedSchema> {
-        // For Confluent registry, pass the client; for Glue, pass null (uses default providers)
+        // For Confluent registry, pass the client to resolve $ref schema references.
+        // For Glue and Custom, pass null (uses default providers, no reference resolution yet)
+        val referenceResolvingClient = when (client.connectionData.registryType) {
+            KafkaRegistryType.CONFLUENT -> client.confluentRegistryClient
+            else -> null
+        }
         return KafkaRegistryUtil.parseSchema(
             versionInfo.type,
             versionInfo.schema,
-            client = client.confluentRegistryClient,
+            client = referenceResolvingClient,
             versionInfo.references
         )
     }
@@ -245,6 +256,7 @@ class KafkaDataManager(
             try {
                 client.confluentRegistryClient?.deleteSchemaVersion(versionInfo)
                     ?: client.glueRegistryClient?.deleteSchemaVersion(versionInfo)
+                    ?: (client.customRegistryClient as? BrowsableCustomRegistryClient)?.deleteSchemaVersion(versionInfo)
                 updater.invokeRefreshModel(schemaVersionModels[versionInfo.schemaName])
                 schemaRegistryModel?.let { updater.invokeRefreshModel(it) }
             } catch (t: Throwable) {
@@ -260,6 +272,7 @@ class KafkaDataManager(
         runInterruptible(Dispatchers.IO) {
             client.confluentRegistryClient?.updateSchema(versionInfo, newSchema)
                 ?: client.glueRegistryClient?.updateSchema(versionInfo, newSchema)
+                ?: (client.customRegistryClient as? BrowsableCustomRegistryClient)?.updateSchema(versionInfo, newSchema)
                 ?: error(KafkaMessagesBundle.message("error.schema.registry.not.configured"))
             schemaRegistryModel?.let { updater.invokeRefreshModel(it) }
         }
@@ -305,6 +318,7 @@ class KafkaDataManager(
         withContext(Dispatchers.IO) {
             client.confluentRegistryClient?.deleteSchema(schemaName, permanent)
                 ?: client.glueRegistryClient?.deleteSchema(schemaName)
+                ?: (client.customRegistryClient as? BrowsableCustomRegistryClient)?.deleteSchema(schemaName, permanent)
             schemaTypeCache.remove(schemaName)
             updater.invokeRefreshModel(schemaVersionModels[schemaName])
             schemaRegistryModel?.let { updater.invokeRefreshModel(it) }
@@ -320,6 +334,7 @@ class KafkaDataManager(
                 "",
                 emptyMap()
             )
+            ?: (client.customRegistryClient as? BrowsableCustomRegistryClient)?.createSchema(schemaName, parsedSchema)
         schemaTypeCache[schemaName] = KafkaRegistryFormat.parse(parsedSchema.schemaType())
         schemaRegistryModel?.let { updater.invokeRefreshModel(it) }
         updater.invokeRefreshModel(schemaVersionModels[schemaName])
@@ -336,12 +351,14 @@ class KafkaDataManager(
     private suspend fun loadSchema(schemaName: String): KafkaSchemaInfo = withContext(Dispatchers.IO) {
         client.confluentRegistryClient?.loadSchemaInfo(schemaName)
             ?: client.glueRegistryClient?.loadSchemaInfo(schemaName)
+            ?: (client.customRegistryClient as? BrowsableCustomRegistryClient)?.loadSchemaInfo(schemaName)
             ?: error(KafkaMessagesBundle.message("error.schema.registry.not.configured"))
     }
 
     override suspend fun getLatestVersionInfo(schemaName: String): SchemaVersionInfo? = withContext(Dispatchers.IO) {
         client.confluentRegistryClient?.getLatestVersionInfo(schemaName)
             ?: client.glueRegistryClient?.getLatestVersionInfo(schemaName)
+            ?: (client.customRegistryClient as? BrowsableCustomRegistryClient)?.getLatestVersionInfo(schemaName)
     }
 
     fun clearTopicWithConfirmation(topicName: String) {

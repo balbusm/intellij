@@ -10,7 +10,9 @@ import com.intellij.util.ui.StatusText
 import io.confluent.intellijplugin.core.monitoring.data.listener.DataModelListener
 import io.confluent.intellijplugin.core.monitoring.toolwindow.DetailsMonitoringController
 import io.confluent.intellijplugin.data.BaseClusterDataManager
+import io.confluent.intellijplugin.data.KafkaDataManager
 import io.confluent.intellijplugin.registry.KafkaRegistryAddSchemaDialog
+import io.confluent.intellijplugin.registry.custom.BrowsableCustomRegistryClient
 import io.confluent.intellijplugin.util.KafkaMessagesBundle
 import java.awt.BorderLayout
 import javax.swing.JComponent
@@ -58,7 +60,8 @@ class KafkaTopicSchemaController(
 
     override fun setDetailsId(id: String) {
         topicName = id
-        val schemaName = id + viewType.suffix
+        val browsableCustomClient = (dataManager as? KafkaDataManager)?.client?.customRegistryClient as? BrowsableCustomRegistryClient
+        val schemaName = browsableCustomClient?.resolveSchemaName(id, viewType) ?: (id + viewType.suffix)
 
         // Always show loading first, then determine final state via listener
         setLoadingState()

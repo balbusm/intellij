@@ -190,6 +190,7 @@ class KafkaProducerClient(
             }
 
             KafkaRegistryType.AWS_GLUE -> {}
+            KafkaRegistryType.CUSTOM -> {}
         }
 
         if (enableIdempotence)

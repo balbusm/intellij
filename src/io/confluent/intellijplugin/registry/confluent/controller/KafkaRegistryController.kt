@@ -210,6 +210,7 @@ internal class KafkaRegistryController(
         KafkaRegistryType.NONE -> error("Should not be invoked")
         KafkaRegistryType.CONFLUENT -> KafkaToolWindowSettings.getInstance().confluentSchemaTableColumnSettings
         KafkaRegistryType.AWS_GLUE -> KafkaToolWindowSettings.getInstance().glueSchemaTableColumnSettings
+        KafkaRegistryType.CUSTOM -> KafkaToolWindowSettings.getInstance().customSchemaTableColumnSettings
     }
 
     override fun showColumnFilter(): Boolean = false

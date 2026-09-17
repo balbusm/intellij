@@ -85,6 +85,10 @@ enum class KafkaFieldType(@Nls val title: String) {
 
                         KafkaRegistryFormat.UNKNOWN -> error("Schema deleted")
                     }
+
+                    KafkaRegistryType.CUSTOM ->
+                        dataManager.client.customRegistryClient?.createDeserializer(registryFormat)
+                            ?: error("Custom registry client is not connected")
                 }
             }
 
@@ -140,6 +144,10 @@ enum class KafkaFieldType(@Nls val title: String) {
                         }
                     )
                 )
+
+                KafkaRegistryType.CUSTOM ->
+                    dataManager.client.customRegistryClient?.createSerializer(registryFormat)
+                        ?: error("Custom registry client is not connected")
             }
         }
 

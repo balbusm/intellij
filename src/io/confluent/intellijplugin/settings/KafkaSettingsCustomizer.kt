@@ -227,5 +227,7 @@ class KafkaSettingsCustomizer(
         val CLOUD_PROVIDER = ModificationKey(KafkaMessagesBundle.message("settings.cloud.provider"))
         val PROPERTIES_SOURCE_KEY = ModificationKey(KafkaMessagesBundle.message("kafka.property.source.label"))
         val REGISTRY_PROPERTIES_SOURCE_KEY = ModificationKey(KafkaMessagesBundle.message("settings.property.source"))
+        val CUSTOM_REGISTRY_PROPERTIES_KEY =
+            ModificationKey(KafkaMessagesBundle.message("settings.registry.custom.properties"))
     }
 }

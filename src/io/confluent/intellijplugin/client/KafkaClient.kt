@@ -21,6 +21,7 @@ import io.confluent.intellijplugin.core.util.withPluginClassLoader
 import io.confluent.intellijplugin.model.*
 import io.confluent.intellijplugin.registry.KafkaRegistryType
 import io.confluent.intellijplugin.registry.confluent.ConfluentRegistryClient
+import io.confluent.intellijplugin.registry.custom.CustomRegistryClient
 import io.confluent.intellijplugin.registry.glue.BdtGlueRegistryClient
 import io.confluent.intellijplugin.rfs.KafkaConfigurationSource
 import io.confluent.intellijplugin.rfs.KafkaConnectionData
@@ -37,6 +38,7 @@ import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.config.ConfigResource
 import org.apache.kafka.common.config.SaslConfigs
 import java.io.File
+import java.net.URLClassLoader
 import java.util.*
 import kotlin.jvm.optionals.getOrNull
 
@@ -58,6 +60,9 @@ class KafkaClient(
         private set
 
     var glueRegistryClient: BdtGlueRegistryClient? = null
+        private set
+
+    var customRegistryClient: CustomRegistryClient? = null
         private set
 
 
@@ -102,8 +107,13 @@ class KafkaClient(
             Disposer.dispose(it)
         }
 
+        customRegistryClient?.let {
+            Disposer.dispose(it)
+        }
+
         confluentRegistryClient = null
         glueRegistryClient = null
+        customRegistryClient = null
 
 
         when (connectionData.registryType) {
@@ -120,6 +130,13 @@ class KafkaClient(
                     Disposer.register(this, it)
                 }
                 glueRegistryClient?.connect(calledByUser)
+            }
+
+            KafkaRegistryType.CUSTOM -> {
+                customRegistryClient = createCustomRegistryClient()?.also {
+                    Disposer.register(this, it)
+                }
+                customRegistryClient?.connect(calledByUser)
             }
         }
 
@@ -379,6 +396,7 @@ class KafkaClient(
             }
 
             KafkaRegistryType.AWS_GLUE -> {}
+            KafkaRegistryType.CUSTOM -> {}
         }
 
 
@@ -403,6 +421,7 @@ class KafkaClient(
         try {
             confluentRegistryClient?.checkConnection()
             glueRegistryClient?.checkConnection()
+            customRegistryClient?.checkConnection()
         } catch (t: Throwable) {
             throw BdtConnectionException(KafkaMessagesBundle.message("connection.kafka.registry.is.not.available"), t)
         }
@@ -469,6 +488,22 @@ class KafkaClient(
             connectionData.getGlueRegistryOrDefault(),
             awsSettingsInfo
         )
+    }
+
+    private fun createCustomRegistryClient(): CustomRegistryClient? {
+        val jarPath = connectionData.customRegistryJarPath?.ifBlank { null }
+            ?: throw BdtConfigurationException(
+                KafkaMessagesBundle.message("error.configuration.custom.registry.jar.not.set")
+            )
+        val classLoader = URLClassLoader(arrayOf(File(jarPath).toURI().toURL()), this::class.java.classLoader)
+        val client = ServiceLoader.load(CustomRegistryClient::class.java, classLoader).firstOrNull()
+            ?: throw BdtConfigurationException(
+                KafkaMessagesBundle.message("error.configuration.custom.registry.jar.no.implementation")
+            )
+        val params = BdtPropertyComponent.parseProperties(connectionData.secretCustomRegistryProperties)
+            .associate { (it.name ?: "") to (it.value ?: "") }
+        client.configure(params)
+        return client
     }
 
     private fun disposeKafkaAdminClient() {

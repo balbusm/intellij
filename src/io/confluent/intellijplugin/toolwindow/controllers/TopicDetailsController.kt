@@ -10,6 +10,7 @@ import io.confluent.intellijplugin.core.monitoring.toolwindow.TabbedDetailsMonit
 import io.confluent.intellijplugin.data.BaseClusterDataManager
 import io.confluent.intellijplugin.data.KafkaDataManager
 import io.confluent.intellijplugin.registry.KafkaRegistryType
+import io.confluent.intellijplugin.registry.custom.BrowsableCustomRegistryClient
 import io.confluent.intellijplugin.registry.confluent.controller.KafkaTopicSchemaController
 import io.confluent.intellijplugin.registry.confluent.controller.TopicSchemaViewType
 import io.confluent.intellijplugin.rfs.KafkaDriver
@@ -53,6 +54,35 @@ class TopicDetailsController(
                             TopicSchemaViewType.TOPIC
                         )
                     )
+                } else {
+                    emptyList()
+                }
+            }
+            KafkaRegistryType.CUSTOM -> {
+                val browsable = (dataManager as? KafkaDataManager)?.client?.customRegistryClient as? BrowsableCustomRegistryClient
+                if (dataManager is KafkaDataManager && browsable != null) {
+                    if (browsable.supportsKeySchema()) {
+                        listOf(
+                            KafkaMessagesBundle.message("topic.tab.schema.key") to KafkaTopicSchemaController(
+                                project,
+                                dataManager,
+                                TopicSchemaViewType.KEY
+                            ),
+                            KafkaMessagesBundle.message("topic.tab.schema.value") to KafkaTopicSchemaController(
+                                project,
+                                dataManager,
+                                TopicSchemaViewType.VALUE
+                            )
+                        )
+                    } else {
+                        listOf(
+                            KafkaMessagesBundle.message("topic.tab.schema") to KafkaTopicSchemaController(
+                                project,
+                                dataManager,
+                                TopicSchemaViewType.TOPIC
+                            )
+                        )
+                    }
                 } else {
                     emptyList()
                 }

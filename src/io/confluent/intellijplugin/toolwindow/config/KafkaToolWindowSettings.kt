@@ -88,6 +88,10 @@ class KafkaToolWindowSettings : PersistentStateComponent<KafkaToolWindowSettings
 
     val glueSchemaTableColumnSettings = ColumnVisibilitySettings(glueSchemaTableColumns.toMutableList())
 
+    // Default to the full superset of columns — unknown upfront which optional fields
+    // (compatibility/updatedTime/description) a given custom-registry JAR actually populates.
+    val customSchemaTableColumnSettings = ColumnVisibilitySettings(glueSchemaTableColumns.toMutableList())
+
     override var configs: MutableMap<String, KafkaClusterConfig> = mutableMapOf()
 
     override var dataUpdateIntervalMillis: Int = 0
